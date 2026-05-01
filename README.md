@@ -8,20 +8,24 @@ This repository contains both the Infrastructure-as-Code (Terraform) to run it s
 
 ```mermaid
 graph TD
-    User([Scanner / User]) -->|Uploads WSI & JSON| GCS[Google Cloud Storage]
-    GCS -->|Eventarc Trigger| CF[Cloud Function]
-    CF -->|Submits Job| KFP[Vertex AI Pipeline]
+    User([User / Pathologist]) -->|Interacts| UI[Streamlit App on Cloud Run]
     
-    subgraph Vertex AI Pipeline
-        KFP_Ext[1. Extract Metadata] -->|MedGemma Prompting| KFP_Proc[2. Process WSI]
-        KFP_Proc -->|Tile Extraction & Embedding| PF[PathFoundation Model]
-        KFP_Proc -->|Mask Generation| MS[MedSigLip Model]
-        KFP_Proc -->|Save Tiles & Masks| GCS_Out[GCS Outputs]
-        KFP_Proc -->|Index Embeddings| VS[Vertex Vector Search]
-        KFP_Proc -->|Log Metadata| BQ[(BigQuery)]
-        KFP_Proc --> KFP_Rep[3. Generate Report]
-        KFP_Rep -->|Uploads Word Doc| GCS_Out
+    UI <-->|Browse Images| GCS_WSI[GCS: wsi-images]
+    
+    subgraph Vertex AI Models
+        V_Gemma[MedGemma Endpoint]
+        V_Path[PathFoundation Endpoint]
+        V_SigLip[MedSigLip Endpoint]
     end
+    
+    UI -->|Extract Targets| V_Gemma
+    UI -->|Get Embeddings| V_Path
+    UI -->|Generate Masks| V_SigLip
+    
+    V_SigLip -->|Save Overlays| GCS_Masks[GCS: masks]
+    UI -->|Generate IOU Report| GCS_Rep[GCS: reports]
+    
+    UI -->|HITL Review| Feedback[(Biological Accuracy Logs)]
 ```
 
 ## 1. Features
